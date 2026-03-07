@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Sign In — NexChat{% endblock %}
+{% block content %}
+<div class="auth-wrap">
+  <div class="auth-card">
+    <div class="auth-brand">
+      <div class="brand-mark">N</div>
+      <h1>NexChat</h1>
+    </div>
+    <p class="auth-tagline">Welcome back. Sign in to continue.</p>
+
+    <form method="POST" class="auth-form">
+      <div class="field">
+        <label>Username</label>
+        <input type="text" name="username" placeholder="Your username" required autofocus/>
+      </div>
+      <div class="field">
+        <label>Password</label>
+        <input type="password" name="password" placeholder="Your password" required/>
+      </div>
+      <button type="submit" class="btn-auth">Sign In</button>
+    </form>
+
+    <p class="auth-switch">New here? <a href="{{ url_for('register') }}">Create a free account</a></p>
+  </div>
+  <div class="auth-bg"></div>
+</div>
+{% endblock %}

@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}Create Account — NexChat{% endblock %}
+{% block content %}
+<div class="auth-wrap">
+  <div class="auth-card">
+    <div class="auth-brand">
+      <div class="brand-mark">N</div>
+      <h1>NexChat</h1>
+    </div>
+    <p class="auth-tagline">Create your account and start chatting.</p>
+
+    <form method="POST" class="auth-form">
+      <div class="field">
+        <label>Username</label>
+        <input type="text" name="username" placeholder="Choose a username" required autofocus/>
+      </div>
+      <div class="field">
+        <label>Email</label>
+        <input type="email" name="email" placeholder="Your email address" required/>
+      </div>
+      <div class="field">
+        <label>Password <span class="hint">(min. 6 characters)</span></label>
+        <input type="password" name="password" placeholder="Create a password" required/>
+      </div>
+      <button type="submit" class="btn-auth">Create Account</button>
+    </form>
+
+    <p class="auth-switch">Already have an account? <a href="{{ url_for('login') }}">Sign in</a></p>
+  </div>
+  <div class="auth-bg"></div>
+</div>
+{% endblock %}
