@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Admin Login — NexChat{% endblock %}
+{% block content %}
+<div class="auth-wrap">
+  <div class="auth-card">
+    <div class="auth-brand">
+      <div class="brand-mark" style="background:linear-gradient(135deg,#ef4444,#b91c1c);">🔐</div>
+      <h1>Admin Panel</h1>
+    </div>
+    <p class="auth-tagline">Enter your admin password to continue.</p>
+    <form method="POST" class="auth-form">
+      <div class="field">
+        <label>Admin Password</label>
+        <input type="password" name="password" placeholder="Enter admin password" required autofocus/>
+      </div>
+      <button type="submit" class="btn-auth" style="background:#ef4444;">Access Dashboard</button>
+    </form>
+    <p class="auth-switch"><a href="{{ url_for('login') }}">← Back to Chat</a></p>
+  </div>
+</div>
+</div>
+</div>
+{% endblock %}

@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Admin Dashboard — NexChat</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"/>
+  <style>
+    :root {
+      --bg:      #0d0f14;
+      --bg2:     #13161e;
+      --bg3:     #1a1e2a;
+      --border:  #252a38;
+      --accent:  #ef4444;
+      --green:   #00a884;
+      --text:    #e8eaf0;
+      --muted:   #6b7280;
+      --font:    'Plus Jakarta Sans', sans-serif;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: var(--font); background: var(--bg); color: var(--text); min-height: 100vh; }
+    .topbar { background: var(--bg2); border-bottom: 1px solid var(--border); padding: 14px 28px; display: flex; align-items: center; justify-content: space-between; }
+    .topbar-brand { display: flex; align-items: center; gap: 12px; }
+    .topbar-icon { width: 36px; height: 36px; background: linear-gradient(135deg, #ef4444, #b91c1c); border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 16px; }
+    .topbar h1 { font-size: 18px; font-weight: 800; }
+    .topbar-actions { display: flex; gap: 10px; }
+    .btn { padding: 8px 16px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; border: none; font-family: var(--font); text-decoration: none; display: inline-flex; align-items: center; gap: 6px; transition: opacity .2s; }
+    .btn:hover { opacity: .85; }
+    .btn-red { background: #ef4444; color: #fff; }
+    .btn-gray { background: var(--bg3); color: var(--text); border: 1px solid var(--border); }
+    .flash { padding: 12px 28px; font-size: 13px; font-weight: 500; }
+    .flash-success { background: rgba(0,168,132,.1); color: var(--green); border-bottom: 1px solid rgba(0,168,132,.2); }
+    .flash-error { background: rgba(239,68,68,.1); color: #ef4444; border-bottom: 1px solid rgba(239,68,68,.2); }
+    .main { padding: 28px; max-width: 1400px; margin: 0 auto; }
+    .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 28px; }
+    .stat-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 14px; padding: 20px 24px; display: flex; align-items: center; gap: 16px; }
+    .stat-icon { font-size: 28px; }
+    .stat-label { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 4px; }
+    .stat-value { font-size: 28px; font-weight: 800; }
+    .stat-card:nth-child(1) .stat-value { color: var(--green); }
+    .stat-card:nth-child(2) .stat-value { color: #3b82f6; }
+    .stat-card:nth-child(3) .stat-value { color: #f59e0b; }
+    .sections { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    .section { background: var(--bg2); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; }
+    .section-header { padding: 16px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+    .section-header h2 { font-size: 15px; font-weight: 700; }
+    .section-count { font-size: 12px; color: var(--muted); }
+    .table-wrap { overflow-x: auto; max-height: 400px; overflow-y: auto; }
+    table { width: 100%; border-collapse: collapse; }
+    th { padding: 10px 16px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); text-align: left; background: var(--bg3); position: sticky; top: 0; }
+    td { padding: 10px 16px; font-size: 13px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: rgba(255,255,255,.02); }
+    .av { width: 30px; height: 30px; border-radius: 50%; background: linear-gradient(135deg, #00a884, #3b82f6); display: inline-flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; color: #fff; margin-right: 8px; vertical-align: middle; }
+    .badge { padding: 3px 8px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+    .badge-green { background: rgba(0,168,132,.15); color: var(--green); }
+    .badge-blue { background: rgba(59,130,246,.15); color: #60a5fa; }
+    .msg-preview { max-width: 220px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .del-form { display: inline; }
+    .btn-del { padding: 5px 10px; background: rgba(239,68,68,.15); color: #ef4444; border: 1px solid rgba(239,68,68,.3); border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; font-family: var(--font); transition: background .15s; }
+    .btn-del:hover { background: rgba(239,68,68,.3); }
+    .full-section { background: var(--bg2); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; margin-top: 20px; }
+    ::-webkit-scrollbar { width: 4px; } ::-webkit-scrollbar-track { background: transparent; } ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+    @media (max-width: 900px) { .sections { grid-template-columns: 1fr; } .stats { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}{% for cat, msg in messages %}
+    <div class="flash flash-{{ cat }}">{{ msg }}</div>
+  {% endfor %}{% endif %}
+{% endwith %}
+<div class="topbar">
+  <div class="topbar-brand">
+    <div class="topbar-icon">🔐</div>
+    <h1>NexChat Admin</h1>
+  </div>
+  <div class="topbar-actions">
+    <a href="{{ url_for('chat') }}" class="btn btn-gray">💬 Go to Chat</a>
+    <a href="{{ url_for('admin_logout') }}" class="btn btn-red">🚪 Logout</a>
+  </div>
+</div>
+<div class="main">
+  <div class="stats">
+    <div class="stat-card"><div class="stat-icon">👥</div><div><div class="stat-label">Total Users</div><div class="stat-value">{{ total_users }}</div></div></div>
+    <div class="stat-card"><div class="stat-icon">💬</div><div><div class="stat-label">Total Messages</div><div class="stat-value">{{ total_messages }}</div></div></div>
+    <div class="stat-card"><div class="stat-icon">🏠</div><div><div class="stat-label">Total Rooms</div><div class="stat-value">{{ total_rooms }}</div></div></div>
+  </div>
+  <div class="sections">
+    <div class="section">
+      <div class="section-header"><h2>👥 Registered Users</h2><span class="section-count">{{ total_users }} total</span></div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>User</th><th>Joined</th><th>Messages</th><th>Action</th></tr></thead>
+          <tbody>
+            {% for user in users %}
+            <tr>
+              <td><span class="av">{{ user.username[0].upper() }}</span>{{ user.username }}</td>
+              <td style="color:#6b7280;">{{ user.created.strftime('%d %b %Y') }}</td>
+              <td><span class="badge badge-blue">{{ user.sent_messages|length }}</span></td>
+              <td>
+                <form class="del-form" method="POST" action="{{ url_for('admin_delete_user', uid=user.id) }}" onsubmit="return confirm('Delete user {{ user.username }}?')">
+                  <button class="btn-del" type="submit">🗑 Delete</button>
+                </form>
+              </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="4" style="text-align:center;color:#6b7280;padding:24px;">No users yet</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="section">
+      <div class="section-header"><h2>🏠 Group Rooms</h2><span class="section-count">{{ total_rooms }} total</span></div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Room Name</th><th>Created By</th><th>Messages</th><th>Created</th></tr></thead>
+          <tbody>
+            {% for room in rooms %}
+            <tr>
+              <td><span class="badge badge-green"># {{ room.name }}</span></td>
+              <td style="color:#6b7280;">{% set creator = users|selectattr('id','equalto',room.created_by)|first %}{{ creator.username if creator else 'Unknown' }}</td>
+              <td><span class="badge badge-blue">{{ room.messages|length }}</span></td>
+              <td style="color:#6b7280;">{{ room.created.strftime('%d %b %Y') }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="4" style="text-align:center;color:#6b7280;padding:24px;">No rooms yet</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  <div class="full-section">
+    <div class="section-header"><h2>💬 Recent Messages (last 100)</h2><span class="section-count">{{ total_messages }} total</span></div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>From</th><th>Message</th><th>Type</th><th>Time</th><th>Action</th></tr></thead>
+        <tbody>
+          {% for msg in messages %}
+          <tr>
+            <td><span class="av">{{ msg.sender.username[0].upper() }}</span>{{ msg.sender.username }}</td>
+            <td><div class="msg-preview">{{ msg.content }}</div></td>
+            <td>{% if msg.room_id %}<span class="badge badge-green">Group</span>{% else %}<span class="badge badge-blue">DM</span>{% endif %}</td>
+            <td style="color:#6b7280;">{{ msg.timestamp.strftime('%d %b %Y %H:%M') }}</td>
+            <td>
+              <form class="del-form" method="POST" action="{{ url_for('admin_delete_message', mid=msg.id) }}" onsubmit="return confirm('Delete this message?')">
+                <button class="btn-del" type="submit">🗑 Delete</button>
+              </form>
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="5" style="text-align:center;color:#6b7280;padding:24px;">No messages yet</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+</body>
+</html>

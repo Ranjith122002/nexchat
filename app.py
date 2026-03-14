@@ -1,4 +1,5 @@
-from flask import Flask, render_template, redirect, url_for, request, flash, jsonify
+import os
+from flask import Flask, render_template, redirect, url_for, request, flash, jsonify, session
 from flask_socketio import SocketIO, emit, join_room, leave_room
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
@@ -6,8 +7,8 @@ from flask_bcrypt import Bcrypt
 from datetime import datetime
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'nexchat-secret-key-change-in-production'
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///nexchat.db'
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'nexchat-secret-key-change-in-production')
+app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///nexchat.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db       = SQLAlchemy(app)
@@ -16,16 +17,15 @@ socketio = SocketIO(app, async_mode='threading', cors_allowed_origins='*')
 login_manager = LoginManager(app)
 login_manager.login_view = 'login'
 
-# ─────────────── Models ───────────────────────────────────
+ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'Ranjith@2002')
 
 class User(UserMixin, db.Model):
     id       = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
-    email    = db.Column(db.String(120), unique=True, nullable=False)
     password = db.Column(db.String(200), nullable=False)
     bio      = db.Column(db.String(300), default='')
     created  = db.Column(db.DateTime, default=datetime.utcnow)
-    sent_messages     = db.relationship('Message', foreign_keys='Message.sender_id',   backref='sender',    lazy=True)
+    sent_messages     = db.relationship('Message', foreign_keys='Message.sender_id',    backref='sender',    lazy=True)
     received_messages = db.relationship('Message', foreign_keys='Message.recipient_id', backref='recipient', lazy=True)
 
 class Room(db.Model):
@@ -43,11 +43,17 @@ class Message(db.Model):
     room_id      = db.Column(db.Integer, db.ForeignKey('room.id'), nullable=True)
     recipient_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
 
+class LoginHistory(db.Model):
+    id         = db.Column(db.Integer, primary_key=True)
+    user_id    = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    username   = db.Column(db.String(80), nullable=False)
+    ip_address = db.Column(db.String(50), nullable=False)
+    timestamp  = db.Column(db.DateTime, default=datetime.utcnow)
+    status     = db.Column(db.String(10), nullable=False)
+
 @login_manager.user_loader
 def load_user(uid):
-    return User.query.get(int(uid))
-
-# ─────────────── Auth Routes ──────────────────────────────
+    return db.session.get(User, int(uid))
 
 @app.route('/')
 def index():
@@ -58,11 +64,22 @@ def login():
     if current_user.is_authenticated:
         return redirect(url_for('chat'))
     if request.method == 'POST':
-        user = User.query.filter_by(username=request.form['username'].strip()).first()
-        if user and bcrypt.check_password_hash(user.password, request.form['password']):
+        username   = request.form['username'].strip()
+        password   = request.form['password']
+        ip_address = request.remote_addr or 'Unknown'
+        user = User.query.filter_by(username=username).first()
+        if user and bcrypt.check_password_hash(user.password, password):
             login_user(user)
+            log = LoginHistory(user_id=user.id, username=username, ip_address=ip_address, status='success')
+            db.session.add(log)
+            db.session.commit()
             return redirect(url_for('chat'))
-        flash('Invalid username or password.', 'error')
+        else:
+            if user:
+                log = LoginHistory(user_id=user.id, username=username, ip_address=ip_address, status='failed')
+                db.session.add(log)
+                db.session.commit()
+            flash('Invalid username or password.', 'error')
     return render_template('login.html')
 
 @app.route('/register', methods=['GET', 'POST'])
@@ -71,17 +88,14 @@ def register():
         return redirect(url_for('chat'))
     if request.method == 'POST':
         username = request.form['username'].strip()
-        email    = request.form['email'].strip()
         password = request.form['password']
         if User.query.filter_by(username=username).first():
             flash('Username already taken.', 'error')
-        elif User.query.filter_by(email=email).first():
-            flash('Email already registered.', 'error')
         elif len(password) < 6:
             flash('Password must be at least 6 characters.', 'error')
         else:
             hashed = bcrypt.generate_password_hash(password).decode('utf-8')
-            user = User(username=username, email=email, password=hashed)
+            user = User(username=username, password=hashed)
             db.session.add(user)
             db.session.commit()
             flash('Account created! Please log in.', 'success')
@@ -94,17 +108,12 @@ def logout():
     logout_user()
     return redirect(url_for('login'))
 
-# ─────────────── Chat Routes ──────────────────────────────
-
 @app.route('/chat')
 @login_required
 def chat():
     rooms = Room.query.order_by(Room.created.desc()).all()
     users = User.query.filter(User.id != current_user.id).order_by(User.username).all()
-    return render_template('chat.html',
-                           rooms=rooms,
-                           users=users,
-                           current_user=current_user)
+    return render_template('chat.html', rooms=rooms, users=users, current_user=current_user)
 
 @app.route('/create_room', methods=['POST'])
 @login_required
@@ -151,7 +160,64 @@ def profile():
         flash('Profile updated!', 'success')
     return render_template('profile.html')
 
-# ─────────────── Socket Events ────────────────────────────
+@app.route('/admin', methods=['GET', 'POST'])
+def admin_login():
+    if request.method == 'POST':
+        if request.form.get('password') == ADMIN_PASSWORD:
+            session['admin'] = True
+            return redirect(url_for('admin_dashboard'))
+        flash('Wrong admin password.', 'error')
+    return render_template('admin_login.html')
+
+@app.route('/admin/dashboard')
+def admin_dashboard():
+    if not session.get('admin'):
+        return redirect(url_for('admin_login'))
+    users          = User.query.order_by(User.created.desc()).all()
+    messages       = Message.query.order_by(Message.timestamp.desc()).limit(100).all()
+    rooms          = Room.query.all()
+    login_logs     = LoginHistory.query.order_by(LoginHistory.timestamp.desc()).limit(100).all()
+    total_users    = User.query.count()
+    total_messages = Message.query.count()
+    total_rooms    = Room.query.count()
+    total_logins   = LoginHistory.query.filter_by(status='success').count()
+    return render_template('admin_dashboard.html',
+                           users=users, messages=messages, rooms=rooms,
+                           login_logs=login_logs,
+                           total_users=total_users,
+                           total_messages=total_messages,
+                           total_rooms=total_rooms,
+                           total_logins=total_logins)
+
+@app.route('/admin/delete_user/<int:uid>', methods=['POST'])
+def admin_delete_user(uid):
+    if not session.get('admin'):
+        return redirect(url_for('admin_login'))
+    user = db.session.get(User, uid)
+    if user:
+        Message.query.filter_by(sender_id=uid).delete()
+        Message.query.filter_by(recipient_id=uid).delete()
+        LoginHistory.query.filter_by(user_id=uid).delete()
+        db.session.delete(user)
+        db.session.commit()
+        flash('User deleted.', 'success')
+    return redirect(url_for('admin_dashboard'))
+
+@app.route('/admin/delete_message/<int:mid>', methods=['POST'])
+def admin_delete_message(mid):
+    if not session.get('admin'):
+        return redirect(url_for('admin_login'))
+    msg = db.session.get(Message, mid)
+    if msg:
+        db.session.delete(msg)
+        db.session.commit()
+        flash('Message deleted.', 'success')
+    return redirect(url_for('admin_dashboard'))
+
+@app.route('/admin/logout')
+def admin_logout():
+    session.pop('admin', None)
+    return redirect(url_for('admin_login'))
 
 @socketio.on('join')
 def on_join(data):
@@ -163,23 +229,17 @@ def on_leave(data):
 
 @socketio.on('message')
 def on_message(data):
-    content   = data.get('content', '').strip()
-    room_key  = data.get('room', '')
+    content  = data.get('content', '').strip()
+    room_key = data.get('room', '')
     if not content or not room_key:
         return
-
     msg = Message(content=content, sender_id=current_user.id)
-
     if room_key.startswith('room_'):
-        room_id  = int(room_key.split('_')[1])
-        msg.room_id = room_id
+        msg.room_id = int(room_key.split('_')[1])
     elif room_key.startswith('dm_'):
-        other_id = int(room_key.split('_')[1])
-        msg.recipient_id = other_id
-
+        msg.recipient_id = int(room_key.split('_')[1])
     db.session.add(msg)
     db.session.commit()
-
     emit('message', {
         'username':  current_user.username,
         'message':   content,
@@ -196,7 +256,10 @@ def on_typing(data):
 def on_stop_typing(data):
     emit('stop_typing', {'username': current_user.username}, to=data['room'], include_self=False)
 
+with app.app_context():
+    db.create_all()
+
 if __name__ == '__main__':
-    with app.app_context():
-        db.create_all()
-    socketio.run(app, debug=True, host='0.0.0.0', port=5000)
+    port  = int(os.environ.get('PORT', 5000))
+    debug = os.environ.get('FLASK_ENV') != 'production'
+    socketio.run(app, host='0.0.0.0', port=port, debug=debug)
