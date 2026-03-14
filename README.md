@@ -10,8 +10,7 @@ A WhatsApp-style real-time chat application built with Python + Flask + Socket.I
 ---
 
 ## 🌍 Live Demo
-👉 [https://nexchat-vm6z.onrender.com](https://nexchat-vm6z.onrender.com)
-
+👉 [https://nexchat-vm6z.onrender.com](https://nexchat-vm6z.onrender.com) — Register and start chatting instantly!
 ---
 
 ## ✨ Features
